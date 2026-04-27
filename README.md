@@ -18,10 +18,3 @@
 - sqlite3
 - OpenAI SDK（兼容调用 DeepSeek 接口）
 
-## 本地运行（test_env）
-
-```powershell
-conda activate test_env
-cd C:\Users\24333\Desktop\cursor
-pip install -r requirements.txt
-streamlit run app.py
