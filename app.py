@@ -1769,6 +1769,36 @@ def inject_custom_css(is_logged_in: bool = False) -> None:
         display:grid;
         gap:0.75rem;
     }
+    .teacher-assignment-list {
+        display:grid;
+        gap:0.72rem;
+        width:100%;
+    }
+    .teacher-assignment-list-item {
+        display:flex;
+        align-items:center;
+        gap:0.75rem;
+        min-height:3.05rem;
+        padding:0.72rem 1rem;
+        border:1px solid rgba(186, 230, 253, 0.82);
+        border-radius:0.95rem;
+        background:rgba(255, 255, 255, 0.64);
+        box-shadow:0 6px 16px rgba(14, 165, 233, 0.05);
+    }
+    .teacher-assignment-list-chevron {
+        color:#64748B;
+        font-size:1.05rem;
+        line-height:1;
+        transform:translateY(-1px);
+        flex:0 0 auto;
+    }
+    .teacher-assignment-list-title {
+        color:#0F172A;
+        font-size:0.96rem;
+        font-weight:650;
+        line-height:1.45;
+        word-break:break-word;
+    }
     /* ── 微信风格私聊区 ── */
     .wx-chat-wrap {
         background:#F5F5F5;
@@ -3998,14 +4028,20 @@ def render_teacher_pages(db: DatabaseManager, page: str) -> None:
                     '<div class="pd-panel-inner"><div class="pd-recent-content">',
                     unsafe_allow_html=True,
                 )
-                class_name_map = db.get_class_name_map(user_id)
                 if assignments:
-                    for item in assignments[:5]:
-                        class_names = [class_name_map.get(class_id, f"班级{class_id}") for class_id in json.loads(item["target_classes"])]
-                        st.markdown(f"**{item['title']}**")
-                        st.caption(f"目标班级：{', '.join(class_names)}")
-                        st.caption(f"截止时间：{item['deadline'] or '未设置'}")
-                        st.divider()
+                    recent_items_html = "".join(
+                        f"""
+                        <div class="teacher-assignment-list-item">
+                            <span class="teacher-assignment-list-chevron">›</span>
+                            <span class="teacher-assignment-list-title">{html.escape(str(item.get("title") or ""))}</span>
+                        </div>
+                        """
+                        for item in assignments[:5]
+                    )
+                    st.markdown(
+                        f'<div class="teacher-assignment-list">{recent_items_html}</div>',
+                        unsafe_allow_html=True,
+                    )
                 else:
                     render_empty_state(
                         "📝",
