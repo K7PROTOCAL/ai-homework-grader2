@@ -186,6 +186,11 @@ class DatabaseManager:
                 student_id INTEGER NOT NULL,
                 assignment_id INTEGER NOT NULL,
                 student_answer TEXT NOT NULL,
+                attachment_type TEXT,
+                attachment_name TEXT,
+                attachment_path TEXT,
+                attachment_mime TEXT,
+                attachment_size INTEGER,
                 score REAL,
                 feedback TEXT,
                 status TEXT NOT NULL DEFAULT 'submitted',
@@ -246,6 +251,19 @@ class DatabaseManager:
                 cursor.execute("ALTER TABLE Assignments ADD COLUMN attachment_mime TEXT")
             if "attachment_size" not in assignment_columns:
                 cursor.execute("ALTER TABLE Assignments ADD COLUMN attachment_size INTEGER")
+            submission_columns = {
+                str(col["name"]) for col in cursor.execute("PRAGMA table_info(Submissions)").fetchall()
+            }
+            if "attachment_type" not in submission_columns:
+                cursor.execute("ALTER TABLE Submissions ADD COLUMN attachment_type TEXT")
+            if "attachment_name" not in submission_columns:
+                cursor.execute("ALTER TABLE Submissions ADD COLUMN attachment_name TEXT")
+            if "attachment_path" not in submission_columns:
+                cursor.execute("ALTER TABLE Submissions ADD COLUMN attachment_path TEXT")
+            if "attachment_mime" not in submission_columns:
+                cursor.execute("ALTER TABLE Submissions ADD COLUMN attachment_mime TEXT")
+            if "attachment_size" not in submission_columns:
+                cursor.execute("ALTER TABLE Submissions ADD COLUMN attachment_size INTEGER")
 
     def ensure_default_admin(self) -> None:
         """
@@ -491,14 +509,39 @@ class DatabaseManager:
                 )
         return results
 
-    def create_submission(self, student_id: int, assignment_id: int, student_answer: str) -> int:
+    def create_submission(
+        self,
+        student_id: int,
+        assignment_id: int,
+        student_answer: str,
+        attachment_type: Optional[str] = None,
+        attachment_name: Optional[str] = None,
+        attachment_path: Optional[str] = None,
+        attachment_mime: Optional[str] = None,
+        attachment_size: Optional[int] = None,
+    ) -> int:
         sql = """
-        INSERT INTO Submissions (student_id, assignment_id, student_answer, status)
-        VALUES (?, ?, ?, 'submitted')
+        INSERT INTO Submissions (
+            student_id, assignment_id, student_answer,
+            attachment_type, attachment_name, attachment_path, attachment_mime, attachment_size, status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'submitted')
         """
         with self._get_connection() as connection:
             cursor = connection.cursor()
-            cursor.execute(sql, (student_id, assignment_id, student_answer))
+            cursor.execute(
+                sql,
+                (
+                    student_id,
+                    assignment_id,
+                    student_answer,
+                    attachment_type,
+                    attachment_name,
+                    attachment_path,
+                    attachment_mime,
+                    attachment_size,
+                ),
+            )
             return int(cursor.lastrowid)
 
     def grade_submission(self, submission_id: int, score: float, feedback: str, status: str = "graded") -> None:
@@ -522,7 +565,8 @@ class DatabaseManager:
     def list_submissions_by_student(self, student_id: int) -> List[Dict[str, Any]]:
         sql = """
         SELECT s.id, s.assignment_id, a.title, a.content, a.standard_answer,
-               s.student_answer, s.score, s.feedback, s.status
+               s.student_answer, s.attachment_type, s.attachment_name, s.attachment_path, s.attachment_mime,
+               s.attachment_size, s.score, s.feedback, s.status
         FROM Submissions s JOIN Assignments a ON s.assignment_id = a.id
         WHERE s.student_id = ? ORDER BY s.id DESC
         """
@@ -535,7 +579,8 @@ class DatabaseManager:
         SELECT s.id, s.assignment_id, s.student_id,
                a.title AS assignment_title, a.content, a.standard_answer,
                u.username AS student_username,
-               s.student_answer, s.score, s.feedback, s.status
+               s.student_answer, s.attachment_type, s.attachment_name, s.attachment_path, s.attachment_mime,
+               s.attachment_size, s.score, s.feedback, s.status
         FROM Submissions s
         JOIN Assignments a ON s.assignment_id = a.id
         JOIN Users u ON s.student_id = u.id
@@ -2562,13 +2607,35 @@ def inject_custom_css(is_logged_in: bool = False) -> None:
         white-space: nowrap;
         max-width: 100%;
     }
+    /* 学生端：答案区上传后预览（紧凑，不遮挡输入） */
+    [class*="st-key-student_submission_preview_"] {
+        margin: 0.28rem 0 0.38rem !important;
+        padding: 0.5rem 0.72rem 0.62rem !important;
+        border: 1px solid rgba(191, 219, 254, 0.9) !important;
+        border-radius: 0.76rem !important;
+        background: linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, rgba(239, 246, 255, 0.92) 100%) !important;
+    }
+    [class*="st-key-student_submission_preview_"] [data-testid="stImage"] img {
+        max-height: 220px !important;
+        object-fit: contain !important;
+        border-radius: 0.62rem !important;
+        border: 1px solid rgba(191, 219, 254, 0.92) !important;
+        box-shadow: 0 5px 14px rgba(37, 99, 235, 0.11) !important;
+    }
+    [class*="st-key-student_submission_preview_"] .assignment-attach-tag {
+        margin-top: 0.18rem !important;
+    }
     /* 把 file_uploader 改造成"图片上传 / 文件上传"两颗紧凑按钮 */
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploader"],
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploader"] {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploader"],
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploader"],
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploader"] {
         margin: 0 !important;
     }
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"],
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"],
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"],
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] {
         background: transparent !important;
         border: none !important;
         padding: 0 !important;
@@ -2577,11 +2644,15 @@ def inject_custom_css(is_logged_in: bool = False) -> None:
         display: block !important;
     }
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzoneInstructions"],
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzoneInstructions"] {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzoneInstructions"],
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzoneInstructions"],
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzoneInstructions"] {
         display: none !important;
     }
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"] button,
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button,
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button,
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button {
         position: relative !important;
         width: 100% !important;
         min-height: 48px !important;
@@ -2608,10 +2679,13 @@ def inject_custom_css(is_logged_in: bool = False) -> None:
             background-color 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
     }
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"] button > *,
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button > * {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button > *,
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button > *,
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button > * {
         display: none !important;
     }
-    .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"] button::after {
+    .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"] button::after,
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button::after {
         content: "🖼  图片上传";
         position: absolute;
         inset: 0;
@@ -2624,7 +2698,8 @@ def inject_custom_css(is_logged_in: bool = False) -> None:
         letter-spacing: 0.02em;
         pointer-events: none;
     }
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button::after {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button::after,
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button::after {
         content: "📎  文件上传";
         position: absolute;
         inset: 0;
@@ -2640,22 +2715,46 @@ def inject_custom_css(is_logged_in: bool = False) -> None:
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"] button:hover,
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"] button:focus-visible,
     .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:hover,
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:focus-visible {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:focus-visible,
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button:hover,
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button:focus-visible,
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button:hover,
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button:focus-visible {
         border-color: #93c5fd !important;
         box-shadow: 0 6px 14px rgba(37, 99, 235, 0.14) !important;
         animation: qElasticBounce 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
         outline: none !important;
     }
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"] button:active,
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:active {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:active,
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button:active,
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button:active {
         animation: qElasticPress 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
     /* 隐藏默认的"已选择文件"小框，改用我们自己的极简标签 */
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderFile"],
     .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderFile"],
     .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderFileData"],
-    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderFileData"] {
+    .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderFileData"],
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderFile"],
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderFile"],
+    [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderFileData"],
+    [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderFileData"] {
         display: none !important;
+    }
+    /* 学生端兜底：隐藏上传器默认黑色文件条，仅保留我们自定义预览 */
+    .st-key-student_answer_card [data-testid="stFileUploaderFile"],
+    .st-key-student_answer_card [data-testid="stFileUploaderFileData"],
+    [class*="st-key-answer_pane_inner_"] [data-testid="stFileUploaderFile"],
+    [class*="st-key-answer_pane_inner_"] [data-testid="stFileUploaderFileData"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        overflow: hidden !important;
     }
     /* 清除附件用的小 ✕ 按钮 */
     .st-key-clear_image_attach button,
@@ -2686,7 +2785,13 @@ def inject_custom_css(is_logged_in: bool = False) -> None:
         .st-key-teacher_assignment_image_uploader [data-testid="stFileUploaderDropzone"] button:active,
         .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:hover,
         .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:focus-visible,
-        .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:active {
+        .st-key-teacher_assignment_file_uploader [data-testid="stFileUploaderDropzone"] button:active,
+        [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button:hover,
+        [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button:focus-visible,
+        [class*="st-key-student_submission_image_uploader_"] [data-testid="stFileUploaderDropzone"] button:active,
+        [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button:hover,
+        [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button:focus-visible,
+        [class*="st-key-student_submission_file_uploader_"] [data-testid="stFileUploaderDropzone"] button:active {
             animation: none !important;
         }
     }
@@ -2933,6 +3038,31 @@ def call_ai_and_grade(db: DatabaseManager, submission_id: int, standard_answer: 
 
 def save_assignment_attachment(uploaded_file: Any, creator_id: int, attachment_type: str) -> Dict[str, Any]:
     upload_root = Path("uploads") / "assignments" / f"teacher_{creator_id}"
+    upload_root.mkdir(parents=True, exist_ok=True)
+    original_name = Path(str(uploaded_file.name)).name
+    suffix = Path(original_name).suffix.lower()
+    random_tag = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    stored_name = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{random_tag}{suffix}"
+    target_path = upload_root / stored_name
+    file_bytes = uploaded_file.getvalue()
+    target_path.write_bytes(file_bytes)
+    mime_type = str(uploaded_file.type or "").strip() or mimetypes.guess_type(original_name)[0] or "application/octet-stream"
+    return {
+        "attachment_type": attachment_type,
+        "attachment_name": original_name,
+        "attachment_path": str(target_path),
+        "attachment_mime": mime_type,
+        "attachment_size": len(file_bytes),
+    }
+
+
+def save_submission_attachment(
+    uploaded_file: Any,
+    student_id: int,
+    assignment_id: int,
+    attachment_type: str,
+) -> Dict[str, Any]:
+    upload_root = Path("uploads") / "submissions" / f"student_{student_id}" / f"assignment_{assignment_id}"
     upload_root.mkdir(parents=True, exist_ok=True)
     original_name = Path(str(uploaded_file.name)).name
     suffix = Path(original_name).suffix.lower()
@@ -4169,6 +4299,30 @@ def render_teacher_pages(db: DatabaseManager, page: str) -> None:
                             """,
                             unsafe_allow_html=True,
                         )
+                        submission_attachment_path = str(item.get("attachment_path") or "").strip()
+                        if submission_attachment_path:
+                            attachment_path_obj = Path(submission_attachment_path)
+                            if attachment_path_obj.exists():
+                                attachment_bytes = attachment_path_obj.read_bytes()
+                                attachment_name = str(item.get("attachment_name") or attachment_path_obj.name)
+                                attachment_mime = str(item.get("attachment_mime") or "").strip() or "application/octet-stream"
+                                st.markdown("**学生附件**")
+                                if str(item.get("attachment_type") or "") == "image":
+                                    st.image(
+                                        attachment_bytes,
+                                        caption=attachment_name,
+                                        use_container_width=True,
+                                    )
+                                st.download_button(
+                                    label="下载学生附件",
+                                    data=attachment_bytes,
+                                    file_name=attachment_name,
+                                    mime=attachment_mime,
+                                    key=f"teacher_submission_attachment_download_{sid}",
+                                    use_container_width=True,
+                                )
+                            else:
+                                st.info("该学生附件不存在，可能已被移动。")
 
                         feedback_key = f"teacher_feedback_input_{sid}"
                         score_key = f"teacher_score_input_{sid}"
@@ -4430,14 +4584,87 @@ def render_student_pages(db: DatabaseManager, page: str) -> None:
                         elif selected_item.attachment_path:
                             st.info("该作业附件不存在，可能已被移动，请联系老师重新上传。")
 
+                        st.markdown(
+                            '<div class="assignment-attach-label" style="text-align:center;">附件（可选）</div>',
+                            unsafe_allow_html=True,
+                        )
+                        submit_attach_col_img, submit_attach_col_file = st.columns(2, gap="small")
+                        with submit_attach_col_img:
+                            uploaded_submission_image = st.file_uploader(
+                                "图片上传",
+                                type=["png", "jpg", "jpeg", "webp"],
+                                key=f"student_submission_image_uploader_{selected_item.id}",
+                                label_visibility="collapsed",
+                                accept_multiple_files=False,
+                            )
+                        with submit_attach_col_file:
+                            uploaded_submission_file = st.file_uploader(
+                                "文件上传",
+                                type=["pdf", "doc", "docx", "txt", "ppt", "pptx", "xlsx", "xls"],
+                                key=f"student_submission_file_uploader_{selected_item.id}",
+                                label_visibility="collapsed",
+                                accept_multiple_files=False,
+                            )
+
                         with st.form(f"submit_assignment_{selected_item.id}", clear_on_submit=True):
                             answer = st.text_area("我的答案", key=f"student_answer_input_{selected_item.id}")
+                            if uploaded_submission_image is not None:
+                                with st.container(key=f"student_submission_preview_{selected_item.id}"):
+                                    st.caption("已选图片（提交后会一并上传）")
+                                    _img_l, _img_mid, _img_r = st.columns([1, 2.2, 1], gap="small")
+                                    with _img_l:
+                                        st.empty()
+                                    with _img_mid:
+                                        st.image(uploaded_submission_image, use_container_width=True)
+                                    with _img_r:
+                                        st.empty()
+                            if uploaded_submission_file is not None:
+                                with st.container(key=f"student_submission_preview_{selected_item.id}"):
+                                    st.caption("已选文件（提交后会一并上传）")
+                                    st.markdown(
+                                        '<div class="assignment-attach-tag">'
+                                        '<span class="assignment-attach-tag-icon">📎</span>'
+                                        f'<span class="assignment-attach-tag-name">{uploaded_submission_file.name}</span>'
+                                        '</div>',
+                                        unsafe_allow_html=True,
+                                    )
+                            if uploaded_submission_file is not None and uploaded_submission_image is not None:
+                                st.info("检测到同时选择了图片和文件，提交时将优先保存“文件上传”。")
                             submit = st.form_submit_button(
                                 "提交并AI批改", use_container_width=True, type="primary"
                             )
-                        if submit and answer.strip():
-                            sid = db.create_submission(user_id, selected_item.id, answer.strip())
-                            call_ai_and_grade(db, sid, selected_item.standard_answer, answer.strip())
+                        if submit:
+                            if not answer.strip() and uploaded_submission_image is None and uploaded_submission_file is None:
+                                st.warning("请填写答案，或至少上传一个附件。")
+                            else:
+                                attachment_payload: Dict[str, Any] = {}
+                                if uploaded_submission_file is not None:
+                                    try:
+                                        attachment_payload = save_submission_attachment(
+                                            uploaded_submission_file, user_id, selected_item.id, "file"
+                                        )
+                                    except OSError:
+                                        st.error("文件保存失败，请重试。")
+                                        st.stop()
+                                elif uploaded_submission_image is not None:
+                                    try:
+                                        attachment_payload = save_submission_attachment(
+                                            uploaded_submission_image, user_id, selected_item.id, "image"
+                                        )
+                                    except OSError:
+                                        st.error("图片保存失败，请重试。")
+                                        st.stop()
+                                sid = db.create_submission(
+                                    user_id,
+                                    selected_item.id,
+                                    answer.strip(),
+                                    attachment_type=attachment_payload.get("attachment_type"),
+                                    attachment_name=attachment_payload.get("attachment_name"),
+                                    attachment_path=attachment_payload.get("attachment_path"),
+                                    attachment_mime=attachment_payload.get("attachment_mime"),
+                                    attachment_size=attachment_payload.get("attachment_size"),
+                                )
+                                call_ai_and_grade(db, sid, selected_item.standard_answer, answer.strip())
     elif page == "提交记录":
         inject_assignment_card_css()
         rows = db.list_submissions_by_student(user_id)
@@ -4462,6 +4689,7 @@ def render_student_pages(db: DatabaseManager, page: str) -> None:
                     student_answer = str(r.get("student_answer") or "").strip()
                     assignment_content = str(r.get("content") or "").strip()
                     standard_answer = str(r.get("standard_answer") or "").strip()
+                    submission_attachment_path = str(r.get("attachment_path") or "").strip()
 
                     is_graded = status == "graded" or score is not None
                     pill_class = "submission-pill--graded" if is_graded else "submission-pill--pending"
@@ -4503,6 +4731,29 @@ def render_student_pages(db: DatabaseManager, page: str) -> None:
                             """,
                             unsafe_allow_html=True,
                         )
+                        if submission_attachment_path:
+                            attachment_path_obj = Path(submission_attachment_path)
+                            if attachment_path_obj.exists():
+                                attachment_bytes = attachment_path_obj.read_bytes()
+                                attachment_name = str(r.get("attachment_name") or attachment_path_obj.name)
+                                attachment_mime = str(r.get("attachment_mime") or "").strip() or "application/octet-stream"
+                                st.markdown("**我的提交附件**")
+                                if str(r.get("attachment_type") or "") == "image":
+                                    st.image(
+                                        attachment_bytes,
+                                        caption=attachment_name,
+                                        use_container_width=True,
+                                    )
+                                st.download_button(
+                                    label="下载我的附件",
+                                    data=attachment_bytes,
+                                    file_name=attachment_name,
+                                    mime=attachment_mime,
+                                    key=f"student_submission_attachment_download_{int(r.get('id') or 0)}",
+                                    use_container_width=True,
+                                )
+                            else:
+                                st.info("该提交附件不存在，可能已被移动。")
     elif page == "消息中心":
         render_message_center(db, "student")
 
