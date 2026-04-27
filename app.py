@@ -1581,7 +1581,6 @@ def inject_custom_css(is_logged_in: bool = False) -> None:
         border-radius: 0.75rem;
         margin-top: 0.35rem;
     }
-
     /* ── 统计卡片 ── */
     .stat-card {
         display:flex;
@@ -3482,15 +3481,15 @@ def inject_assignment_card_css() -> None:
         }
 
         /* 批改区：AI 重批 / 保存评语 各自独立一行、水平居中 */
-        .st-key-teacher_ai_regrade_row,
+        [class*="st-key-teacher_ai_regrade_row_"],
         .st-key-teacher_save_feedback_row {
             width: 100% !important;
         }
-        .st-key-teacher_ai_regrade_row [data-testid="stVerticalBlock"],
+        [class*="st-key-teacher_ai_regrade_row_"] [data-testid="stVerticalBlock"],
         .st-key-teacher_save_feedback_row [data-testid="stVerticalBlock"] {
             width: 100% !important;
         }
-        .st-key-teacher_ai_regrade_row
+        [class*="st-key-teacher_ai_regrade_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3)),
         .st-key-teacher_save_feedback_row
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3)) {
@@ -3499,7 +3498,7 @@ def inject_assignment_card_css() -> None:
             align-items: stretch !important;
             gap: 0.75rem !important;
         }
-        .st-key-teacher_ai_regrade_row
+        [class*="st-key-teacher_ai_regrade_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"],
         .st-key-teacher_save_feedback_row
@@ -3507,10 +3506,10 @@ def inject_assignment_card_css() -> None:
             > [data-testid="column"] {
             flex: 0 0 auto !important;
         }
-        .st-key-teacher_ai_regrade_row
+        [class*="st-key-teacher_ai_regrade_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"]:nth-child(1),
-        .st-key-teacher_ai_regrade_row
+        [class*="st-key-teacher_ai_regrade_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"]:nth-child(3),
         .st-key-teacher_save_feedback_row
@@ -3521,7 +3520,7 @@ def inject_assignment_card_css() -> None:
             > [data-testid="column"]:nth-child(3) {
             min-width: 0 !important;
         }
-        .st-key-teacher_ai_regrade_row
+        [class*="st-key-teacher_ai_regrade_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"]:nth-child(2) {
             flex: 0 1 min(100%, 18rem) !important;
@@ -4029,17 +4028,12 @@ def render_teacher_pages(db: DatabaseManager, page: str) -> None:
                     unsafe_allow_html=True,
                 )
                 if assignments:
-                    recent_items_html = "".join(
-                        f"""
-                        <div class="teacher-assignment-list-item">
-                            <span class="teacher-assignment-list-chevron">›</span>
-                            <span class="teacher-assignment-list-title">{html.escape(str(item.get("title") or ""))}</span>
-                        </div>
-                        """
+                    recent_titles: List[str] = [
+                        str(item.get("title") or "").strip() or "未命名作业"
                         for item in assignments[:5]
-                    )
+                    ]
                     st.markdown(
-                        f'<div class="teacher-assignment-list">{recent_items_html}</div>',
+                        "\n".join(f"- {html.escape(title)}" for title in recent_titles),
                         unsafe_allow_html=True,
                     )
                 else:
@@ -4185,7 +4179,7 @@ def render_teacher_pages(db: DatabaseManager, page: str) -> None:
                                 float(score_value) if score_value is not None else 0.0
                             )
 
-                        with st.container(key="teacher_ai_regrade_row"):
+                        with st.container(key=f"teacher_ai_regrade_row_{sid}"):
                             _ai_l, _ai_mid, _ai_r = st.columns([1, 2.4, 1], gap="medium")
                             with _ai_l:
                                 st.empty()
