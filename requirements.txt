@@ -1,0 +1,6 @@
+streamlit>=1.32
+pandas>=2.0
+pydantic>=2.0
+openai>=1.30
+cryptography>=42.0
+pillow>=10.0

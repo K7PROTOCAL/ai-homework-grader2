@@ -1,0 +1,24 @@
+# Streamlit secrets（含真实 API Key，绝不上传）
+.streamlit/secrets.toml
+
+# 环境变量与密钥文件
+.env
+.env.*
+*.pem
+*.key
+
+# Python 运行缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 本地 SQLite 数据库（含真实用户数据，不应上传公开仓库）
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE / OS 杂项
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
