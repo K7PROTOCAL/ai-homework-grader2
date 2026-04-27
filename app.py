@@ -3482,16 +3482,16 @@ def inject_assignment_card_css() -> None:
 
         /* 批改区：AI 重批 / 保存评语 各自独立一行、水平居中 */
         [class*="st-key-teacher_ai_regrade_row_"],
-        .st-key-teacher_save_feedback_row {
+        [class*="st-key-teacher_save_feedback_row_"] {
             width: 100% !important;
         }
         [class*="st-key-teacher_ai_regrade_row_"] [data-testid="stVerticalBlock"],
-        .st-key-teacher_save_feedback_row [data-testid="stVerticalBlock"] {
+        [class*="st-key-teacher_save_feedback_row_"] [data-testid="stVerticalBlock"] {
             width: 100% !important;
         }
         [class*="st-key-teacher_ai_regrade_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3)),
-        .st-key-teacher_save_feedback_row
+        [class*="st-key-teacher_save_feedback_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3)) {
             display: flex !important;
             justify-content: center !important;
@@ -3501,7 +3501,7 @@ def inject_assignment_card_css() -> None:
         [class*="st-key-teacher_ai_regrade_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"],
-        .st-key-teacher_save_feedback_row
+        [class*="st-key-teacher_save_feedback_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"] {
             flex: 0 0 auto !important;
@@ -3512,10 +3512,10 @@ def inject_assignment_card_css() -> None:
         [class*="st-key-teacher_ai_regrade_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"]:nth-child(3),
-        .st-key-teacher_save_feedback_row
+        [class*="st-key-teacher_save_feedback_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"]:nth-child(1),
-        .st-key-teacher_save_feedback_row
+        [class*="st-key-teacher_save_feedback_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"]:nth-child(3) {
             min-width: 0 !important;
@@ -3527,7 +3527,7 @@ def inject_assignment_card_css() -> None:
             min-width: min(100%, 12rem) !important;
             max-width: 18rem !important;
         }
-        .st-key-teacher_save_feedback_row
+        [class*="st-key-teacher_save_feedback_row_"]
             [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(3))
             > [data-testid="column"]:nth-child(2) {
             flex: 0 1 min(100%, 20rem) !important;
@@ -4200,7 +4200,7 @@ def render_teacher_pages(db: DatabaseManager, page: str) -> None:
                             placeholder="为该学生写一段反馈…",
                         )
 
-                        with st.container(key="teacher_save_feedback_row"):
+                        with st.container(key=f"teacher_save_feedback_row_{sid}"):
                             _sv_l, _sv_mid, _sv_r = st.columns([1, 2.4, 1], gap="medium")
                             with _sv_l:
                                 st.empty()
